@@ -81,4 +81,44 @@ Para recrear esta aplicación usando un agente de desarrollo, se debe usar un pr
 7. Incluir indicadores de carga y mensajes de error específicos (incluyendo errores de parseo XML y de red/CORS) usando un modal en lugar de alert().  
 8. Utilizar Tailwind CSS para un diseño limpio, moderno y completamente responsivo."
 
+**Añadido**
+# **Gestor de XML y Herramientas Avanzadas**
+
+Esta es una aplicación web de una sola página diseñada para cargar, parsear, consultar y analizar datos provenientes de archivos XML, incluyendo soporte para archivos ZIP que contengan XML. La herramienta incorpora funcionalidades avanzadas como consultas XPath y análisis de datos asistido por inteligencia artificial (Gemini API).
+
+## **Características Principales**
+
+### **1\. Carga y Preparación de Datos**
+
+* **Soporte de Archivo Extensivo:** Permite la carga de archivos XML directamente o archivos ZIP que contengan un único archivo XML.  
+* **Carga Remota:** Capacidad para cargar archivos XML o ZIP desde una URL externa.  
+* **Manejo de Errores:** Incluye validación de XML mal formado y gestión robusta de errores de consulta.
+
+### **2\. Consulta y Extracción de Datos**
+
+* **Ejecución de XPath:** Motor para ejecutar consultas XPath contra el documento XML cargado.  
+* **Estabilidad Mejorada (Corrección de Bug):** Utiliza un método de *Snapshot* estático para procesar los resultados de XPath, resolviendo el error de "document mutated" y asegurando que los resultados sean fiables para el procesamiento posterior.  
+* **Límite de Resultados:** Almacena los primeros 500 nodos de la consulta XPath para garantizar un procesamiento eficiente en las herramientas avanzadas.
+
+### **3\. Herramientas de Procesamiento Avanzado**
+
+Las siguientes herramientas actúan sobre los resultados de la última consulta XPath ejecutada:
+
+| Herramienta | Descripción |
+| :---- | :---- |
+| **Ver XML Formateado** | Serializa y muestra los nodos resultantes de la consulta XPath en un formato XML legible y con indentación. |
+| **Convertir a JSON** | Transforma la estructura de los nodos XML resultantes en un objeto JSON (JavaScript Object Notation), facilitando la integración y el análisis en otros sistemas. |
+| **Análisis y Resumen con IA ✨** | **NUEVO:** Envía el resultado JSON de la consulta al modelo **Gemini 2.5 Flash** para generar un resumen profesional de los datos, identificar patrones, tendencias, anomalías y ofrecer recomendaciones de uso o limpieza de los datos. |
+
+## **Uso**
+
+1. **Cargar el XML:**  
+   * Utiliza el área de **Carga desde Disco Local** para arrastrar y soltar o seleccionar un archivo .xml o .zip.  
+   * O bien, introduce una URL en la sección de **Carga desde URL Externa** y pulsa "Cargar URL".  
+2. **Verificación:** La sección de "Información del XML Cargado" mostrará la raíz del documento y el número total de elementos.  
+3. **Ejecutar Consulta XPath:** Introduce una expresión XPath (por ejemplo, //item\[price \> 10\]) en el campo correspondiente y haz clic en "Ejecutar Consulta". Los nodos resultantes se listarán.  
+4. **Analizar:** Una vez que tengas resultados de XPath, selecciona una de las herramientas de procesamiento, como "Análisis y Resumen con IA ✨", para obtener una visión profunda de los datos extraídos.
+
+**Nota:** La función de Análisis con IA está diseñada para analizar la estructura de los resultados de XPath, proporcionando contexto y análisis del subconjunto de datos seleccionado.
+
 *Fin del Documento*
