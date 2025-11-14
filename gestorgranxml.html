@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de XML y URL</title>
+    <!-- Carga de Tailwind CSS para estilos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de JSZip para manejar archivos ZIP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        /* Estilos personalizados para la aplicación */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .container-card {
+            background-color: white;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .file-upload-area {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        .file-upload-area:hover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Estilo para el área de resultados XML */
+        #xml-info, #xpath-results {
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex items-start justify-center">
+
+    <div id="app-container" class="w-full max-w-4xl container-card rounded-xl p-6 md:p-10 mt-10">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-6 text-center">
+            Gestor de XML y ZIP (Local/URL)
+        </h1>
+        <p class="text-gray-600 mb-8 text-center">
+            Sube un archivo local o usa una URL para cargar un archivo XML o un ZIP.
+            <br>
+            <strong class="text-red-500">Advertencia:</strong> El manejo de archivos muy grandes y las restricciones de CORS limitan las cargas por URL.
+        </p>
+
+        <!-- Área de Carga Local de Archivo -->
+        <div class="mb-6 border-b pb-6">
+            <label for="file-input" class="block text-lg font-bold text-gray-700 mb-2">1. Carga desde Disco Local</label>
+            <div id="file-upload-area" class="file-upload-area flex flex-col items-center justify-center p-6 rounded-lg cursor-pointer">
+                <input type="file" id="file-input" accept=".xml,.zip" class="hidden" onchange="handleFileChange(event)">
+                <svg class="w-10 h-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.885-7.885 5.5 5.5 0 0110.47 1.272A6 6 0 0117 17a6 6 0 01-1.397.164 4.002 4.002 0 01-3.606 2.336H7z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 17L12 13m0 0L8 17m4-4v8"></path></svg>
+                <p id="file-status" class="text-sm text-gray-600">Arrastra y suelta o haz clic para subir (.xml o .zip)</p>
+            </div>
+        </div>
+        
+        <!-- Área de Carga desde URL -->
+        <div class="mb-8">
+            <label for="url-input" class="block text-lg font-bold text-gray-700 mb-2">2. Carga desde URL Externa</label>
+            <div class="flex space-x-3">
+                <input type="url" id="url-input" placeholder="Ej: https://ejemplo.com/archivo.zip" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <button onclick="handleUrlLoad()" class="px-5 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-150 ease-in-out">
+                    Cargar URL
+                </button>
+            </div>
+        </div>
+
+        <div id="error-message" class="text-red-500 text-sm mt-4 p-3 bg-red-100 border border-red-300 rounded-lg hidden"></div>
+
+        <!-- Panel de Información y Consulta (Oculto inicialmente) -->
+        <div id="xml-panel" class="space-y-6 hidden">
+
+            <!-- Estado de Carga -->
+            <div class="p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                <h3 class="text-lg font-semibold text-blue-800 mb-2">Información del XML Cargado</h3>
+                <div id="xml-info" class="text-sm text-gray-700 bg-white p-3 rounded">
+                    <!-- Contenido XML se inyectará aquí -->
+                </div>
+            </div>
+
+            <!-- Consulta XPath -->
+            <div>
+                <label for="xpath-query" class="block text-sm font-medium text-gray-700 mb-2">Consulta XPath</label>
+                <div class="flex space-x-3">
+                    <input type="text" id="xpath-query" placeholder="Ej: //item[price > 10]" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <button onclick="executeXPathQuery()" class="px-5 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 ease-in-out">
+                        Ejecutar Consulta
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resultados XPath -->
+            <div class="p-4 border border-gray-200 bg-white rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Resultados de la Consulta</h3>
+                <div id="xpath-results" class="text-sm text-gray-700 bg-gray-50 p-3 rounded border">
+                    <p class="text-gray-500">Los resultados de la consulta aparecerán aquí.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Indicador de Carga -->
+        <div id="loading-indicator" class="hidden flex items-center justify-center p-8 bg-yellow-50 rounded-lg">
+            <div class="loading-spinner mr-3"></div>
+            <p class="text-lg font-medium text-yellow-800">Procesando archivo... por favor, espere.</p>
+        </div>
+
+        <!-- Modal para Notificaciones (usado en lugar de alert()) -->
+        <div id="modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50" onclick="hideModal()">
+            <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm" onclick="event.stopPropagation()">
+                <h3 id="modal-title" class="text-xl font-bold mb-3 text-gray-800"></h3>
+                <p id="modal-body" class="text-gray-600 mb-4"></p>
+                <button onclick="hideModal()" class="w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-150">Aceptar</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Global variables for the parsed XML document
+        let xmlDoc = null;
+        let xmlContent = '';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // --- Utilidades de Interfaz ---
+
+        function showModal(title, body) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').textContent = body;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function hideModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        function setLoading(isLoading, message = "Procesando...") {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const appPanel = document.getElementById('xml-panel');
+            const fileStatus = document.getElementById('file-status');
+            const errorDiv = document.getElementById('error-message');
+
+            if (isLoading) {
+                appPanel.classList.add('hidden');
+                loadingIndicator.classList.remove('hidden');
+                errorDiv.classList.add('hidden');
+                document.querySelector('#loading-indicator p').textContent = message;
+            } else {
+                loadingIndicator.classList.add('hidden');
+                // Restablecer el estado del input de archivo
+                fileStatus.textContent = 'Arrastra y suelta o haz clic para subir (.xml o .zip)';
+            }
+        }
+
+        function displayError(message) {
+            setLoading(false);
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.innerHTML = `<p class="font-bold">Error:</p><p>${message}</p>`;
+            errorDiv.classList.remove('hidden');
+            document.getElementById('xml-panel').classList.add('hidden');
+            xmlDoc = null;
+        }
+
+        // --- Manejo de Archivos Locales ---
+
+        /**
+         * Maneja el cambio en el input de archivo local.
+         */
+        async function handleFileChange(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Limpiar input de URL y error
+            document.getElementById('url-input').value = '';
+            
+            // Actualiza el estado del archivo en la UI
+            document.getElementById('file-status').textContent = `Archivo seleccionado: ${file.name}`;
+            setLoading(true, `Cargando y analizando ${file.name}...`);
+            xmlDoc = null; // Reiniciar estado
+
+            const fileName = file.name.toLowerCase();
+            let fileData = null; // Usaremos ArrayBuffer para zip y texto para xml
+
+            try {
+                if (fileName.endsWith('.xml')) {
+                    fileData = await readFile(file, 'text');
+                } else if (fileName.endsWith('.zip')) {
+                    fileData = await readFile(file, 'arraybuffer');
+                } else {
+                    displayError('Formato de archivo local no soportado. Por favor, sube un .xml o un .zip.');
+                    return;
+                }
+
+                await processData(fileData, fileName);
+
+            } catch (error) {
+                console.error("Error al procesar el archivo local:", error);
+                displayError(`Error en el procesamiento del archivo local: ${error.message || error}`);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        /**
+         * Lee el contenido de un archivo como el tipo especificado.
+         * @param {File} file - El objeto File.
+         * @param {'text'|'arraybuffer'} type - Tipo de lectura.
+         * @returns {Promise<string|ArrayBuffer>} El contenido.
+         */
+        function readFile(file, type) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(new Error('Fallo al leer el archivo local.'));
+
+                if (type === 'text') {
+                    reader.readAsText(file);
+                } else {
+                    reader.readAsArrayBuffer(file);
+                }
+            });
+        }
+        
+        // --- Manejo de Archivos desde URL ---
+
+        /**
+         * Maneja la carga de un archivo desde una URL.
+         */
+        async function handleUrlLoad() {
+            const url = document.getElementById('url-input').value.trim();
+            if (!url) {
+                displayError('Por favor, introduce una URL válida.');
+                return;
+            }
+
+            // Limpiar input de archivo local
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-status').textContent = 'Listo para subir desde disco.';
+            
+            const urlLower = url.toLowerCase();
+            const fileName = url.substring(url.lastIndexOf('/') + 1); // Nombre para referencia
+
+            setLoading(true, `Descargando desde URL: ${fileName}...`);
+            xmlDoc = null; // Reiniciar estado
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Fallo en la descarga: Código ${response.status}. Revisa si la URL es correcta o si hay problemas de CORS.`);
+                }
+                
+                let fileData;
+                let mimeType = response.headers.get("content-type") || '';
+                
+                if (urlLower.endsWith('.xml') || mimeType.includes('xml')) {
+                    fileData = await response.text();
+                } else if (urlLower.endsWith('.zip') || mimeType.includes('zip')) {
+                    fileData = await response.arrayBuffer();
+                } else {
+                    throw new Error('Tipo de contenido de URL no soportado (.xml o .zip).');
+                }
+
+                await processData(fileData, fileName);
+
+            } catch (error) {
+                console.error("Error al cargar URL:", error);
+                displayError(`Error al cargar la URL: ${error.message || error}`);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // --- Lógica de Procesamiento Central ---
+        
+        /**
+         * Decide cómo procesar los datos (descomprimir o parsear)
+         * @param {string|ArrayBuffer} data - El contenido del archivo.
+         * @param {string} fileName - Nombre del archivo/URL para determinar el tipo.
+         */
+        async function processData(data, fileName) {
+            let xmlString = null;
+            const fileNameLower = fileName.toLowerCase();
+
+            if (fileNameLower.endsWith('.xml') && typeof data === 'string') {
+                xmlString = data;
+                setLoading(true, `Parseando XML: ${fileName}...`);
+            } else if (fileNameLower.endsWith('.zip') && data instanceof ArrayBuffer) {
+                setLoading(true, `Descomprimiendo ZIP: ${fileName}...`);
+                xmlString = await processZip(data);
+            } else {
+                throw new Error("Error interno: Tipo de dato o extensión no coincidente.");
+            }
+            
+            if (xmlString) {
+                processXML(xmlString, fileName);
+            }
+        }
+
+
+        /**
+         * Procesa un ArrayBuffer de ZIP, buscando el primer archivo XML.
+         * @param {ArrayBuffer} arrayBuffer - El contenido del archivo ZIP.
+         * @returns {Promise<string|null>} El contenido XML como string o null si falla.
+         */
+        async function processZip(arrayBuffer) {
+            const zip = new JSZip();
+            const zipFile = await zip.loadAsync(arrayBuffer);
+
+            // Buscar el primer archivo que termine en .xml
+            let xmlFile = null;
+            let found = false;
+            
+            // Usamos try/catch con un error para romper el bucle forEach de JSZip
+            try {
+                zipFile.forEach((relativePath, fileEntry) => {
+                    if (!fileEntry.dir && relativePath.toLowerCase().endsWith('.xml')) {
+                        xmlFile = fileEntry;
+                        found = true;
+                        throw new Error("XML_FOUND"); // Truco para romper forEach
+                    }
+                });
+            } catch (e) {
+                if (e.message !== "XML_FOUND") throw e; // Lanzar errores reales
+            }
+
+
+            if (found && xmlFile) {
+                // El método 'async' de JSZip es crucial para archivos grandes
+                return xmlFile.async("text");
+            } else {
+                throw new Error("El archivo ZIP no contiene un archivo .xml o está vacío.");
+            }
+        }
+
+
+        // --- Manejo y Consulta XML ---
+
+        /**
+         * Parsea el string XML y actualiza la UI.
+         * @param {string} xmlString - El contenido XML en formato string.
+         * @param {string} sourceName - Nombre de la fuente (archivo/url).
+         */
+        function processXML(xmlString, sourceName) {
+            xmlContent = xmlString;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(xmlString, "application/xml");
+
+            // Comprobar errores de parseo XML
+            const error = doc.querySelector('parsererror');
+            if (error) {
+                displayError('Error al parsear el XML. Esto puede indicar un XML mal formado o un problema de codificación.');
+                return;
+            }
+
+            xmlDoc = doc;
+
+            // Extraer y mostrar información general
+            const rootElement = xmlDoc.documentElement ? xmlDoc.documentElement.nodeName : 'N/A';
+            const totalElements = xmlDoc.getElementsByTagName('*').length;
+
+            document.getElementById('xml-info').innerHTML = `
+                <p><strong>Fuente:</strong> ${sourceName}</p>
+                <p><strong>Raíz del Documento:</strong> <code>&lt;${rootElement}&gt;</code></p>
+                <p><strong>Total de Elementos (nodos):</strong> ${totalElements.toLocaleString('es-ES')}</p>
+                <p class="mt-2 text-gray-500">Documento listo para consultas XPath.</p>
+            `;
+            document.getElementById('xpath-query').value = rootElement === 'N/A' ? '' : `/${rootElement}/*[1]`; // Sugerencia de consulta
+            document.getElementById('xml-panel').classList.remove('hidden');
+        }
+
+        /**
+         * Ejecuta la consulta XPath ingresada por el usuario.
+         */
+        function executeXPathQuery() {
+            if (!xmlDoc) {
+                showModal('Error de XML', 'Primero debes cargar y procesar un archivo XML.');
+                return;
+            }
+
+            const query = document.getElementById('xpath-query').value.trim();
+            if (!query) {
+                showModal('Consulta Vacía', 'Por favor, introduce una expresión XPath.');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('xpath-results');
+            resultsDiv.innerHTML = '<div class="flex items-center"><div class="loading-spinner mr-2"></div> Ejecutando consulta...</div>';
+
+            // Usamos setTimeout para que el spinner se muestre antes de bloquear el hilo
+            setTimeout(() => {
+                try {
+                    // Si el navegador soporta 'createExpression', usarlo (más rápido y potente en algunos casos)
+                    const resolver = xmlDoc.createNSResolver(xmlDoc.documentElement);
+                    const iterator = xmlDoc.evaluate(query, xmlDoc, resolver, XPathResult.ANY_TYPE, null);
+                    
+                    let node = iterator.iterateNext();
+                    let count = 0;
+                    let resultHtml = '';
+
+                    while (node) {
+                        count++;
+                        let nodeOutput = '';
+                        
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            // Si es un elemento, mostramos su etiqueta, atributos y un poco de su contenido.
+                            const attrs = Array.from(node.attributes).map(attr => `${attr.name}="${attr.value}"`).join(' ');
+                            
+                            // Limitar la previsualización del texto a 100 caracteres
+                            let textContentPreview = node.textContent.trim().substring(0, 100);
+                            if (node.textContent.trim().length > 100) textContentPreview += '...';
+
+                            nodeOutput = `
+                                <div>
+                                    <strong class="text-blue-600">${count}. &lt;${node.nodeName}${attrs ? ' ' + attrs : ''}&gt;</strong>
+                                    <p class="ml-4 text-xs italic text-gray-500">Contenido: ${textContentPreview}</p>
+                                </div>
+                            `;
+                        } else if (node.nodeType === Node.ATTRIBUTE_NODE) {
+                            // Si es un atributo
+                            nodeOutput = `<p class="text-green-600">${count}. Atributo: ${node.name} = "${node.value}"</p>`;
+                        } else if (node.nodeType === Node.TEXT_NODE) {
+                            // Si es un nodo de texto
+                            const textValue = node.nodeValue.trim();
+                            if (textValue) {
+                                // Limitar la previsualización del texto a 150 caracteres
+                                nodeOutput = `<p class="text-purple-600">${count}. Texto: "${textValue.substring(0, 150)}..."</p>`;
+                            }
+                        }
+
+                        resultHtml += nodeOutput;
+                        node = iterator.iterateNext();
+                        
+                        // Limitador de resultados para evitar congelar el navegador
+                        if (count > 500) {
+                            resultHtml += `<p class="text-orange-500 font-bold mt-4">... Mostrando solo los primeros 500 resultados para evitar sobrecarga del navegador.</p>`;
+                            break;
+                        }
+                    }
+
+                    if (count === 0) {
+                        resultsDiv.innerHTML = '<p class="text-red-500 font-semibold">No se encontraron resultados para la consulta.</p>';
+                    } else {
+                        resultsDiv.innerHTML = `
+                            <p class="mb-3 font-semibold text-gray-800">Se encontraron ${count.toLocaleString('es-ES')} resultados:</p>
+                            <div class="space-y-2">${resultHtml}</div>
+                        `;
+                    }
+
+                } catch (e) {
+                    console.error("Error al ejecutar XPath:", e);
+                    resultsDiv.innerHTML = `<p class="text-red-500 font-semibold">Error en la sintaxis XPath o durante la ejecución:</p><p class="text-red-500">${e.message}</p>`;
+                }
+            }, 50); // Pequeño retraso para permitir la actualización de la UI
+        }
+
+        // --- Configuración Drag and Drop ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const dropArea = document.getElementById('file-upload-area');
+            const fileInput = document.getElementById('file-input');
+
+            // Click listener para abrir el diálogo de archivo
+            dropArea.addEventListener('click', () => fileInput.click());
+
+            // Listeners para Drag and Drop
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.add('border-blue-500', 'bg-blue-50'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.remove('border-blue-500', 'bg-blue-50'), false);
+            });
+
+            dropArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+
+                if (files.length) {
+                    // Limpiar input de URL y error
+                    document.getElementById('url-input').value = '';
+                    
+                    fileInput.files = files; // Asigna los archivos al input
+                    fileInput.dispatchEvent(new Event('change')); // Dispara el evento change
+                }
+            }
+        });
+    </script>
+</body>
+</html>
