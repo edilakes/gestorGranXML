@@ -184,10 +184,13 @@
         // Global variables for the parsed XML document and the last query results
         let xmlDoc = null;
         let xmlContent = '';
-        let lastXPathNodes = []; // Almacena los nodos resultantes de la última consulta XPath
+        // Almacena los nodos resultantes de la última consulta XPath (máx 500 nodos)
+        let lastXPathNodes = []; 
         let currentQueryMode = 'direct'; // Modo inicial
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const apiKey = ""; // Clave API de Gemini
+        // Límite de 5MB para la salida de texto formateado inyectada en el DOM
+        const MAX_FORMATTED_OUTPUT_LENGTH = 5 * 1024 * 1024; 
 
         // --- Utilidades de Interfaz ---
 
@@ -671,31 +674,52 @@
         }
 
 
-        // --- FUNCIONES DE HERRAMIENTAS (ANTERIORES) ---
+        // --- FUNCIONES DE HERRAMIENTAS (ACTUALIZADA viewFormattedXML) ---
 
         function viewFormattedXML() {
             if (lastXPathNodes.length === 0) {
                 showModal('Error', 'Primero debes ejecutar una consulta XPath que devuelva resultados.');
                 return;
             }
-            // Lógica de viewFormattedXML... (Sin cambios funcionales)
+
             const resultsPre = document.getElementById('tool-results');
-            resultsPre.textContent = `Formateando ${lastXPathNodes.length} nodos XML...`;
+            resultsPre.textContent = `Iniciando formateo de ${lastXPathNodes.length} nodos XML...`;
 
             setTimeout(() => {
                 try {
                     const serializer = new XMLSerializer();
                     let formattedXml = '';
+                    let isTruncated = false;
                     
                     lastXPathNodes.forEach((node, index) => {
+                        if (isTruncated) return; // Salir del bucle si ya se ha truncado
+
                         let rawXml = serializer.serializeToString(node);
+                        // Regex para 'pretty-print' básico: agrega salto de línea entre etiquetas
                         let prettyXml = rawXml.replace(/(>)(<)(\/*)/g, '$1\n$2$3');
-                        formattedXml += `<!-- Resultado ${index + 1} -->\n` + prettyXml + '\n\n';
+                        
+                        let chunk = `<!-- Resultado ${index + 1} -->\n` + prettyXml + '\n\n';
+
+                        if ((formattedXml.length + chunk.length) > MAX_FORMATTED_OUTPUT_LENGTH) {
+                            isTruncated = true;
+                            // Notificar que se va a truncar
+                            const limitMB = Math.round(MAX_FORMATTED_OUTPUT_LENGTH / (1024 * 1024));
+                            formattedXml += `\n<!-- TRUNCADO: El tamaño total del XML formateado excedió el límite de ${limitMB}MB para mostrar en el navegador. -->\n`;
+                            return;
+                        }
+                        
+                        formattedXml += chunk;
                     });
                     
                     resultsPre.textContent = formattedXml.trim(); 
                     resultsPre.classList.remove('text-red-500');
                     resultsPre.classList.add('text-gray-700');
+
+                    if (isTruncated) {
+                        const limitMB = Math.round(MAX_FORMATTED_OUTPUT_LENGTH / (1024 * 1024));
+                        showModal('Advertencia de Tamaño', `Se han procesado algunos nodos, pero la salida final fue truncada a aproximadamente ${limitMB}MB para evitar agotar la memoria del navegador. Es posible que no veas todos los resultados.`);
+                    }
+
                 } catch (e) {
                     console.error("Error al formatear XML:", e);
                     resultsPre.textContent = `Error al serializar los nodos: ${e.message}`;
@@ -770,11 +794,26 @@
                     });
                     
                     const outputObject = jsonArray.length === 1 ? jsonArray[0] : jsonArray;
-                    const jsonString = JSON.stringify(outputObject, null, 2);
+                    // Limitar la salida de JSON a 10MB (un poco más generoso que el XML)
+                    let jsonString = JSON.stringify(outputObject, null, 2);
+                    let isTruncated = false;
+
+                    const MAX_JSON_OUTPUT_LENGTH = 10 * 1024 * 1024; // 10MB
+                    if (jsonString.length > MAX_JSON_OUTPUT_LENGTH) {
+                         jsonString = jsonString.substring(0, MAX_JSON_OUTPUT_LENGTH);
+                         jsonString += "\n\n/* TRUNCADO: La salida JSON excedió el límite de 10MB y ha sido cortada para evitar problemas de rendimiento del navegador. */";
+                         isTruncated = true;
+                    }
+
 
                     resultsPre.textContent = jsonString;
                     resultsPre.classList.remove('text-red-500');
                     resultsPre.classList.add('text-gray-700');
+
+                    if (isTruncated) {
+                        showModal('Advertencia de Tamaño', `La salida JSON excedió el límite de 10MB y ha sido truncada.`);
+                    }
+
                 } catch (e) {
                     console.error("Error al convertir a JSON:", e);
                     resultsPre.textContent = `Error en la conversión de los nodos a JSON: ${e.message}`;
@@ -802,6 +841,7 @@
                     }
                 });
                 const outputObject = jsonArray.length === 1 ? jsonArray[0] : jsonArray;
+                // Límite de 10000 caracteres para el contexto del LLM
                 jsonString = JSON.stringify(outputObject, null, 2).substring(0, 10000); 
             } catch (e) {
                 resultsPre.textContent = `Error al preparar los datos para la IA: ${e.message}`;
