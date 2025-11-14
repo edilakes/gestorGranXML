@@ -1,124 +1,74 @@
-# **📂 Gestor de Archivos XML y ZIP (Local/URL)**
+# **📑 Gestor de XML y Herramientas Avanzadas (v2.1)**
 
-## **🌟 Descripción General**
+Esta aplicación web en un solo archivo HTML está diseñada para el análisis y la manipulación avanzada de documentos XML, ofreciendo funcionalidades robustas para manejar la carga de archivos grandes y consultas complejas mediante XPath y capacidades de Inteligencia Artificial.
 
-Esta aplicación web de una sola página (.html) está diseñada para facilitar la carga y el análisis de archivos XML, incluyendo aquellos que están comprimidos en formato ZIP, tanto desde el disco local del usuario como desde una URL externa. Utiliza JavaScript nativo para el procesamiento de XML y la librería JSZip para la descompresión.
+## **🚀 Funcionalidades Clave**
 
-Su principal utilidad es permitir la ejecución de consultas **XPath** en documentos XML, proporcionando una herramienta ligera y accesible para inspeccionar el contenido de archivos grandes sin necesidad de herramientas de escritorio o configuración de servidor.
+### **1\. Carga Flexible de Archivos**
 
-## **✨ Funcionalidades Principales**
+La aplicación soporta múltiples métodos de carga, con manejo optimizado para archivos grandes y contenedores comprimidos:
 
-1. **Carga Múltiple de Orígenes:**  
-   * **Local:** Soporte para subir archivos desde el disco (.xml o .zip).  
-   * **URL Externa:** Posibilidad de descargar y procesar archivos (.xml o .zip) desde cualquier URL accesible.  
-2. **Descompresión Integrada:**  
-   * Soporte para archivos **ZIP (.zip)** que contengan un único archivo XML. La aplicación lo descomprime automáticamente en memoria para su procesamiento.  
-3. **Análisis XML:**  
-   * Una vez cargado y parseado, muestra información clave del documento (nombre del elemento raíz, número total de nodos).  
-4. **Consulta XPath:**  
-   * Permite al usuario introducir una expresión XPath y ejecutarla en tiempo real sobre el documento XML cargado.  
-   * Muestra los resultados de la consulta, incluyendo el tipo de nodo (elemento, atributo, texto) y una vista previa de su contenido.  
-5. **Diseño Responsivo:**  
-   * Interfaz moderna y adaptable gracias al uso de Tailwind CSS, garantizando una buena experiencia en dispositivos móviles y de escritorio.
+* **Carga Local:** Permite subir archivos **.xml** o **.zip** directamente desde el disco local mediante *drag and drop* o selección de archivo.  
+* **Carga por URL:** Permite cargar archivos **.xml** o **.zip** desde una URL externa (sujeto a las políticas de CORS del servidor remoto).  
+* **Soporte ZIP:** Si se carga un archivo .zip, la aplicación lo descomprime automáticamente y extrae el **primer archivo .xml** que encuentra en su interior.
 
-## **🛠️ Tecnologías Utilizadas**
+### **2\. Consulta XPath (Doble Modo)**
 
-* **HTML5 y JavaScript (ES6+):** Estructura y lógica de la aplicación.  
-* **Tailwind CSS:** Framework de utilidad para el diseño y la estética.  
-* **JSZip:** Librería JavaScript para manejar la lectura y descompresión de archivos ZIP en el cliente.  
-* **API DOMParser:** Utilizada para transformar la cadena de texto XML en un objeto Document navegable.  
-* **API XPath:** Utilizada mediante el método document.evaluate() para ejecutar las consultas.
+El corazón de la aplicación permite consultar el documento XML cargado mediante dos modos interactivos:
 
-## **🚀 Forma de Uso**
+| Modo | Descripción | Herramienta |
+| :---- | :---- | :---- |
+| **XPath Directa** | Ejecución inmediata de cualquier expresión **XPath 1.0** válida. | Estándar |
+| **Lenguaje Natural (IA)** | Utiliza el modelo **Gemini 2.5 Flash** para analizar la estructura simplificada del XML y convertir una pregunta en lenguaje natural (ej. "dame todos los items cuyo precio sea mayor a 10") en una expresión XPath ejecutable. | Gemini API |
 
-La aplicación es completamente autocontenida y se ejecuta simplemente abriendo el archivo xml\_manager.html en cualquier navegador moderno.
+### **3\. Gestión Optimización de Resultados**
 
-### **A. Carga desde Disco Local**
+Para proteger la memoria del navegador y garantizar la estabilidad, la aplicación impone límites estrictos en el procesamiento y visualización de resultados:
 
-1. Haga clic en el área de carga o arrastre un archivo (.xml o .zip).  
-2. El archivo será leído. Si es un ZIP, se descomprimirá el primer archivo XML encontrado.  
-3. Una vez procesado, el **Panel de Información del XML** se hará visible.
+* **Límite de Nodos:** La consulta XPath puede devolver millones de nodos, pero la aplicación solo almacena un máximo de **500 nodos** en memoria (lastXPathNodes) para las herramientas de procesamiento posteriores. El conteo total de nodos encontrados es visible en el resultado.
 
-### **B. Carga desde URL Externa**
+### **4\. Herramientas de Procesamiento Avanzado**
 
-1. Introduzca la URL completa del archivo (ej. https://ejemplo.com/data.zip) en el campo de texto.  
-2. Haga clic en el botón **"Cargar URL"**.  
-3. La aplicación intentará descargar el contenido.  
-   * Si la descarga es exitosa, se procesará el contenido como XML o ArrayBuffer (para ZIP).  
-   * Si falla (especialmente por CORS), se mostrará un mensaje de error detallado.
+Una vez que se ha ejecutado una consulta XPath, las siguientes herramientas se aplican sobre el conjunto de resultados (máx. 500 nodos):
 
-### **C. Ejecución de Consultas XPath**
+| Herramienta | Descripción | Protección de Recursos |
+| :---- | :---- | :---- |
+| **Ver XML Formateado** | Serializa y aplica un *pretty-print* básico al XML de los nodos resultantes. | **Límite de 5 MB:** La salida de texto inyectada en el DOM está estrictamente limitada a 5 megabytes. Si se excede, se trunca y se notifica al usuario, evitando la saturación de memoria. |
+| **Convertir a JSON** | Transforma la estructura XML de los nodos a un formato JSON equivalente (usando una conversión estándar XML-to-JSON). | **Límite de 10 MB:** La salida JSON también está limitada a 10 megabytes para su visualización. |
+| **Análisis y Resumen con IA** | Envía una muestra de los datos (JSON, limitado a 10,000 caracteres) al modelo **Gemini 2.5 Flash** para generar un resumen perspicaz de la estructura, los patrones y las anomalías de los datos. | **Límite de Contexto:** El contexto enviado a la IA está limitado para garantizar respuestas rápidas y concisas. |
 
-1. Una vez que el panel XML está visible, escriba una expresión XPath en el campo **"Consulta XPath"** (ej. //libro\[precio \> 20\]/titulo).  
-2. Haga clic en **"Ejecutar Consulta"**.  
-3. Los resultados se mostrarán en la sección inferior, limitados a 500 elementos para evitar bloqueos del navegador en documentos muy grandes.
+## **🛠️ Forma de Uso**
 
-## **🛑 Limitaciones Importantes**
+1. **Cargar Archivo:** Utiliza el área de carga (disco o URL) para seleccionar tu archivo .xml o .zip.  
+2. **Verificación:** La aplicación mostrará la raíz del documento y el total de elementos.  
+3. **Ejecutar Consulta:**  
+   * **Directa:** Introduce //item/price en el campo y haz clic en **"Ejecutar Consulta"**.  
+   * **IA:** Cambia a **"Lenguaje Natural (IA)"**, introduce tu pregunta y haz clic en **"Generar y Ejecutar XPath (IA)"**. El XPath generado se mostrará antes de la ejecución.  
+4. **Procesar Resultados:** Una vez que se muestren los resultados de XPath (máx. 500 guardados), utiliza cualquiera de los tres botones de las **Herramientas de Procesamiento** para obtener el XML formateado, el JSON o el análisis de la IA.
 
-Esta aplicación está limitada por las capacidades del entorno de navegador, lo que impone las siguientes restricciones:
+## **⚠️ Limitaciones y Requisitos**
 
-1. **Límite de Memoria (Archivos Grandes):** Los navegadores tienen límites de memoria estrictos. Intentar cargar y parsear archivos XML que superen los **100-200 MB** (dependiendo del dispositivo) puede provocar que la aplicación se congele o se cierre por falta de memoria (Out of Memory).  
-2. **Restricciones de CORS (Carga por URL):** Para que la carga desde URL funcione, el servidor que aloja el archivo debe enviar los encabezados HTTP que permitan el acceso desde otro dominio (CORS). Si el servidor no lo permite, la descarga fallará con un error de seguridad del navegador.  
-3. **Soporte de Compresión:** Solo se soporta el formato **ZIP (.zip)**. Otros formatos como .7z, .rar o .tar son demasiado complejos de implementar en un código JavaScript autocontenido y no son compatibles.  
-4. **Procesamiento DOM:** La aplicación usa DOMParser, que carga el documento completo en la memoria del navegador. No es un *parser* de *streaming* (SAX), lo que reitera la limitación de archivos grandes.
+1. **API Key de Gemini:** Las funciones de "Lenguaje Natural (IA)" y "Análisis y Resumen con IA" requieren la clave API de Gemini. La variable apiKey en el código está inicialmente vacía (const apiKey \= "";).  
+2. **CORS:** La carga desde URL puede fallar si el servidor de origen no permite solicitudes de *Cross-Origin Resource Sharing* (CORS).  
+3. **XPath 1.0:** Se utiliza el motor XPath nativo del navegador, que generalmente solo soporta la versión 1.0.  
+4. **Rendimiento en XML Formateado:** Aunque la aplicación tiene un límite de 5MB, intentar visualizar archivos cercanos a ese tamaño puede causar una desaceleración temporal del navegador debido al *DOM rendering*.  
+5. **Solo el Primer XML en ZIP:** Solo se procesa el primer archivo XML encontrado dentro de un contenedor ZIP.
 
-## **💡 Prompt de Creación para un Agente**
+## **💻 Prompt de Creación (Desde Cero)**
 
-Para recrear esta aplicación usando un agente de desarrollo, se debe usar un prompt muy específico que detalle las tecnologías y los requisitos de un solo archivo.
+El siguiente *prompt* describe detalladamente la aplicación en su estado actual, incluyendo las medidas de seguridad para el manejo de XML grandes:
 
-**Prompt Recomendado:**
+Crea una aplicación web en un solo archivo HTML, usando Tailwind CSS, para la gestión avanzada de archivos XML. Debe permitir la carga de XML o archivos ZIP que contengan XML, tanto desde disco local (incluyendo Drag and Drop) como desde una URL externa. 
 
-"Quiero desarrollar una aplicación web de una sola página en HTML, JavaScript y Tailwind CSS que funcione como un gestor de archivos XML. La salida debe ser un único archivo xml\_manager.html.
+Implementa una herramienta de consulta XPath con dos modos:   
+1\) Entrada directa de XPath.  
+2\) Conversión de lenguaje natural a XPath utilizando la API de Gemini (debe mostrar el XPath generado antes de ejecutarlo). 
 
-**Requisitos:**
+La aplicación debe mostrar información básica del XML cargado. Los resultados de XPath ejecutados deben limitarse a almacenar un máximo de 500 nodos para su procesamiento posterior, aunque debe mostrar el conteo total de resultados.
 
-1. Permitir la carga de archivos desde **dos fuentes**: disco local (mediante input de archivo o drag-and-drop) y una URL externa (mediante un campo de texto).  
-2. Los formatos de archivo soportados son: **.xml** y **.zip**.  
-3. Si el archivo es un **.zip**, debe utilizar la librería JSZip (cargada desde CDN) para descomprimirlo y extraer el primer archivo **.xml** encontrado.  
-4. Una vez cargado el contenido XML, debe parsearse en un objeto DOM.  
-5. Debe tener un campo de entrada para consultas **XPath** y un botón para ejecutar la consulta sobre el documento cargado.  
-6. Los resultados de la consulta deben mostrarse en una lista, indicando el tipo de nodo (elemento, texto, atributo) y una previsualización de su valor, limitando la visualización a los primeros 500 resultados.  
-7. Incluir indicadores de carga y mensajes de error específicos (incluyendo errores de parseo XML y de red/CORS) usando un modal en lugar de alert().  
-8. Utilizar Tailwind CSS para un diseño limpio, moderno y completamente responsivo."
+Además, incluye herramientas post-consulta (que operan sobre los resultados limitados):  
+1\) Convertir los resultados de XPath a JSON (con límite de salida de 10MB).  
+2\) Un botón para enviar el JSON de los resultados (limitado a 10000 caracteres) a la API de Gemini para un 'Análisis y Resumen'.  
+3\) \*\*CRÍTICO:\*\* Una función llamada 'Ver XML de los Resultados Formateado' que serialice los nodos. Esta función debe limitar estrictamente la salida de texto XML formateado inyectada al DOM a 5 megabytes (5 \* 1024 \* 1024 bytes) para prevenir el agotamiento de recursos del navegador con archivos muy grandes. Si el límite se excede, debe truncar la salida, añadir un mensaje de advertencia visible y mostrar un modal de notificación al usuario.
 
-**Añadido**
-# **Gestor de XML y Herramientas Avanzadas**
-
-Esta es una aplicación web de una sola página diseñada para cargar, parsear, consultar y analizar datos provenientes de archivos XML, incluyendo soporte para archivos ZIP que contengan XML. La herramienta incorpora funcionalidades avanzadas como consultas XPath y análisis de datos asistido por inteligencia artificial (Gemini API).
-
-## **Características Principales**
-
-### **1\. Carga y Preparación de Datos**
-
-* **Soporte de Archivo Extensivo:** Permite la carga de archivos XML directamente o archivos ZIP que contengan un único archivo XML.  
-* **Carga Remota:** Capacidad para cargar archivos XML o ZIP desde una URL externa.  
-* **Manejo de Errores:** Incluye validación de XML mal formado y gestión robusta de errores de consulta.
-
-### **2\. Consulta y Extracción de Datos**
-
-* **Ejecución de XPath:** Motor para ejecutar consultas XPath contra el documento XML cargado.  
-* **Estabilidad Mejorada (Corrección de Bug):** Utiliza un método de *Snapshot* estático para procesar los resultados de XPath, resolviendo el error de "document mutated" y asegurando que los resultados sean fiables para el procesamiento posterior.  
-* **Límite de Resultados:** Almacena los primeros 500 nodos de la consulta XPath para garantizar un procesamiento eficiente en las herramientas avanzadas.
-
-### **3\. Herramientas de Procesamiento Avanzado**
-
-Las siguientes herramientas actúan sobre los resultados de la última consulta XPath ejecutada:
-
-| Herramienta | Descripción |
-| :---- | :---- |
-| **Ver XML Formateado** | Serializa y muestra los nodos resultantes de la consulta XPath en un formato XML legible y con indentación. |
-| **Convertir a JSON** | Transforma la estructura de los nodos XML resultantes en un objeto JSON (JavaScript Object Notation), facilitando la integración y el análisis en otros sistemas. |
-| **Análisis y Resumen con IA ✨** | **NUEVO:** Envía el resultado JSON de la consulta al modelo **Gemini 2.5 Flash** para generar un resumen profesional de los datos, identificar patrones, tendencias, anomalías y ofrecer recomendaciones de uso o limpieza de los datos. |
-
-## **Uso**
-
-1. **Cargar el XML:**  
-   * Utiliza el área de **Carga desde Disco Local** para arrastrar y soltar o seleccionar un archivo .xml o .zip.  
-   * O bien, introduce una URL en la sección de **Carga desde URL Externa** y pulsa "Cargar URL".  
-2. **Verificación:** La sección de "Información del XML Cargado" mostrará la raíz del documento y el número total de elementos.  
-3. **Ejecutar Consulta XPath:** Introduce una expresión XPath (por ejemplo, //item\[price \> 10\]) en el campo correspondiente y haz clic en "Ejecutar Consulta". Los nodos resultantes se listarán.  
-4. **Analizar:** Una vez que tengas resultados de XPath, selecciona una de las herramientas de procesamiento, como "Análisis y Resumen con IA ✨", para obtener una visión profunda de los datos extraídos.
-
-**Nota:** La función de Análisis con IA está diseñada para analizar la estructura de los resultados de XPath, proporcionando contexto y análisis del subconjunto de datos seleccionado.
-
-*Fin del Documento*
+Utiliza un sistema de modal (\`showModal\`) en lugar de \`alert()\` para todas las notificaciones de error y advertencia.  
