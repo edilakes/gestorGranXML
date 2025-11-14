@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de XML y URL</title>
+    <title>Gestor de XML y Herramientas Avanzadas</title>
     <!-- Carga de Tailwind CSS para estilos -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Carga de JSZip para manejar archivos ZIP -->
@@ -38,9 +38,9 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* Estilo para el área de resultados XML */
-        #xml-info, #xpath-results {
-            max-height: 300px;
+        /* Estilo para el área de resultados */
+        #xml-info, #xpath-results, #tool-results {
+            max-height: 400px;
             overflow-y: auto;
             white-space: pre-wrap;
             word-wrap: break-word;
@@ -51,12 +51,10 @@
 
     <div id="app-container" class="w-full max-w-4xl container-card rounded-xl p-6 md:p-10 mt-10">
         <h1 class="text-3xl font-extrabold text-gray-900 mb-6 text-center">
-            Gestor de XML y ZIP (Local/URL)
+            Gestor de XML y Herramientas Avanzadas
         </h1>
         <p class="text-gray-600 mb-8 text-center">
-            Sube un archivo local o usa una URL para cargar un archivo XML o un ZIP.
-            <br>
-            <strong class="text-red-500">Advertencia:</strong> El manejo de archivos muy grandes y las restricciones de CORS limitan las cargas por URL.
+            Sube o carga por URL un archivo XML o un ZIP que contenga XML.
         </p>
 
         <!-- Área de Carga Local de Archivo -->
@@ -83,7 +81,7 @@
         <div id="error-message" class="text-red-500 text-sm mt-4 p-3 bg-red-100 border border-red-300 rounded-lg hidden"></div>
 
         <!-- Panel de Información y Consulta (Oculto inicialmente) -->
-        <div id="xml-panel" class="space-y-6 hidden">
+        <div id="xml-panel" class="space-y-8 hidden">
 
             <!-- Estado de Carga -->
             <div class="p-4 border border-blue-200 bg-blue-50 rounded-lg">
@@ -93,24 +91,76 @@
                 </div>
             </div>
 
-            <!-- Consulta XPath -->
+            <!-- Consulta XPath con Selector de Modo -->
             <div>
-                <label for="xpath-query" class="block text-sm font-medium text-gray-700 mb-2">Consulta XPath</label>
-                <div class="flex space-x-3">
-                    <input type="text" id="xpath-query" placeholder="Ej: //item[price > 10]" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                    <button onclick="executeXPathQuery()" class="px-5 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 ease-in-out">
+                <label class="block text-xl font-bold text-gray-700 mb-2">Consulta XPath</label>
+                
+                <!-- Selector de Modo -->
+                <div class="flex mb-3 rounded-lg overflow-hidden border border-gray-300">
+                    <button id="mode-direct" onclick="setQueryMode('direct')" class="flex-1 p-2 font-semibold transition duration-150 bg-blue-600 text-white shadow-inner">XPath Directa</button>
+                    <button id="mode-natural" onclick="setQueryMode('natural')" class="flex-1 p-2 font-semibold transition duration-150 bg-white text-gray-700 hover:bg-gray-100">Lenguaje Natural (IA)</button>
+                </div>
+
+                <!-- Input fields (uno visible, otro oculto) -->
+                <div id="query-input-container">
+                    <!-- Direct XPath Input (Visible por defecto) -->
+                    <input type="text" id="xpath-query-direct" placeholder="Ej: //item[price > 10]" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    
+                    <!-- Natural Language Input (Oculto por defecto) -->
+                    <div id="natural-language-group" class="hidden">
+                        <textarea id="xpath-query-natural" rows="3" placeholder="Ej: dame todos los items cuyo precio sea mayor a 10 y que tengan la clase 'oferta'" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        <p class="text-sm text-gray-500 mt-1">La IA analizará la estructura XML para generar la consulta XPath. El resultado se mostrará y ejecutará.</p>
+                    </div>
+                </div>
+                
+                <!-- Execute Button -->
+                <div class="flex mt-3">
+                    <button id="execute-button" onclick="handleQueryExecution()" class="w-full px-5 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 ease-in-out">
                         Ejecutar Consulta
                     </button>
                 </div>
+            </div>
+
+            <!-- Indicador de XPath Generado -->
+            <div id="generated-xpath-indicator" class="hidden p-3 border border-green-300 bg-green-100 rounded-lg mb-4">
+                <p class="text-sm text-green-800 font-semibold">✅ XPath Generado por IA (y ejecutado):</p>
+                <code id="generated-xpath-code" class="block mt-1 p-1 bg-white border border-green-200 rounded text-xs overflow-x-auto"></code>
             </div>
 
             <!-- Resultados XPath -->
             <div class="p-4 border border-gray-200 bg-white rounded-lg">
                 <h3 class="text-lg font-semibold text-gray-900 mb-2">Resultados de la Consulta</h3>
                 <div id="xpath-results" class="text-sm text-gray-700 bg-gray-50 p-3 rounded border">
-                    <p class="text-gray-500">Los resultados de la consulta aparecerán aquí.</p>
+                    <p class="text-gray-500">Los resultados de la consulta aparecerán aquí. Estos resultados son la base de las Herramientas de Procesamiento.</p>
                 </div>
             </div>
+
+            <!-- Panel de Herramientas de Procesamiento -->
+            <div id="processing-tools-panel" class="space-y-6">
+                <h2 class="text-2xl font-bold text-gray-900 mt-4">Herramientas de Procesamiento (Sobre Resultados XPath)</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button onclick="viewFormattedXML()" class="p-4 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-sm hover:bg-gray-300 transition duration-150 ease-in-out">
+                        Ver XML de los Resultados Formateado
+                    </button>
+                    <button onclick="convertToJSON()" class="p-4 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-150 ease-in-out">
+                        Convertir Resultados a JSON
+                    </button>
+                    <!-- FUNCIÓN DE GEMINI -->
+                    <button onclick="analyzeWithGemini()" class="p-4 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 transition duration-150 ease-in-out">
+                        Análisis y Resumen con IA ✨
+                    </button>
+                </div>
+
+                <!-- Resultados de Herramientas -->
+                <div class="p-4 border border-gray-200 bg-white rounded-lg">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Resultado de la Herramienta</h3>
+                    <pre id="tool-results" class="text-sm text-gray-700 bg-gray-50 p-3 rounded border overflow-x-auto">
+                        <p class="text-gray-500">Los resultados de las herramientas (XML formateado, JSON o Análisis IA) aparecerán aquí.</p>
+                    </pre>
+                </div>
+            </div>
+
         </div>
 
         <!-- Indicador de Carga -->
@@ -131,10 +181,13 @@
     </div>
 
     <script>
-        // Global variables for the parsed XML document
+        // Global variables for the parsed XML document and the last query results
         let xmlDoc = null;
         let xmlContent = '';
+        let lastXPathNodes = []; // Almacena los nodos resultantes de la última consulta XPath
+        let currentQueryMode = 'direct'; // Modo inicial
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const apiKey = ""; // Clave API de Gemini
 
         // --- Utilidades de Interfaz ---
 
@@ -173,27 +226,73 @@
             errorDiv.classList.remove('hidden');
             document.getElementById('xml-panel').classList.add('hidden');
             xmlDoc = null;
+            lastXPathNodes = []; // Limpiar resultados
+            document.getElementById('generated-xpath-indicator').classList.add('hidden'); // Ocultar indicador XPath
         }
 
-        // --- Manejo de Archivos Locales ---
+        /**
+         * Cambia el modo de consulta entre 'direct' y 'natural'.
+         */
+        function setQueryMode(mode) {
+            currentQueryMode = mode;
+            const btnDirect = document.getElementById('mode-direct');
+            const btnNatural = document.getElementById('mode-natural');
+            const inputDirect = document.getElementById('xpath-query-direct');
+            const groupNatural = document.getElementById('natural-language-group');
+            
+            document.getElementById('generated-xpath-indicator').classList.add('hidden'); // Ocultar indicador al cambiar modo
+
+            if (mode === 'direct') {
+                btnDirect.classList.add('bg-blue-600', 'text-white', 'shadow-inner');
+                btnDirect.classList.remove('bg-white', 'text-gray-700', 'hover:bg-gray-100');
+                btnNatural.classList.add('bg-white', 'text-gray-700', 'hover:bg-gray-100');
+                btnNatural.classList.remove('bg-blue-600', 'text-white', 'shadow-inner');
+                
+                inputDirect.classList.remove('hidden');
+                groupNatural.classList.add('hidden');
+                document.getElementById('execute-button').textContent = "Ejecutar Consulta";
+            } else {
+                btnNatural.classList.add('bg-blue-600', 'text-white', 'shadow-inner');
+                btnNatural.classList.remove('bg-white', 'text-gray-700', 'hover:bg-gray-100');
+                btnDirect.classList.add('bg-white', 'text-gray-700', 'hover:bg-gray-100');
+                btnDirect.classList.remove('bg-blue-600', 'text-white', 'shadow-inner');
+
+                inputDirect.classList.add('hidden');
+                groupNatural.classList.remove('hidden');
+                document.getElementById('execute-button').textContent = "Generar y Ejecutar XPath (IA)";
+            }
+        }
 
         /**
-         * Maneja el cambio en el input de archivo local.
+         * Maneja la ejecución de la consulta, llamando a la función apropiada.
          */
+        function handleQueryExecution() {
+            // Ocultar el indicador de XPath generado si está visible
+            document.getElementById('generated-xpath-indicator').classList.add('hidden');
+            
+            if (currentQueryMode === 'direct') {
+                executeXPathQuery(document.getElementById('xpath-query-direct').value.trim());
+            } else {
+                convertNaturalLanguageToXPath();
+            }
+        }
+
+        // --- Manejo de Archivos Locales y URL (sin cambios en la lógica de carga) ---
+
         async function handleFileChange(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            // Limpiar input de URL y error
             document.getElementById('url-input').value = '';
             
-            // Actualiza el estado del archivo en la UI
             document.getElementById('file-status').textContent = `Archivo seleccionado: ${file.name}`;
             setLoading(true, `Cargando y analizando ${file.name}...`);
-            xmlDoc = null; // Reiniciar estado
+            xmlDoc = null; 
+            lastXPathNodes = []; // Limpiar resultados
+            document.getElementById('generated-xpath-indicator').classList.add('hidden');
 
             const fileName = file.name.toLowerCase();
-            let fileData = null; // Usaremos ArrayBuffer para zip y texto para xml
+            let fileData = null; 
 
             try {
                 if (fileName.endsWith('.xml')) {
@@ -215,12 +314,6 @@
             }
         }
 
-        /**
-         * Lee el contenido de un archivo como el tipo especificado.
-         * @param {File} file - El objeto File.
-         * @param {'text'|'arraybuffer'} type - Tipo de lectura.
-         * @returns {Promise<string|ArrayBuffer>} El contenido.
-         */
         function readFile(file, type) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -235,11 +328,6 @@
             });
         }
         
-        // --- Manejo de Archivos desde URL ---
-
-        /**
-         * Maneja la carga de un archivo desde una URL.
-         */
         async function handleUrlLoad() {
             const url = document.getElementById('url-input').value.trim();
             if (!url) {
@@ -247,15 +335,16 @@
                 return;
             }
 
-            // Limpiar input de archivo local
             document.getElementById('file-input').value = '';
             document.getElementById('file-status').textContent = 'Listo para subir desde disco.';
             
             const urlLower = url.toLowerCase();
-            const fileName = url.substring(url.lastIndexOf('/') + 1); // Nombre para referencia
+            const fileName = url.substring(url.lastIndexOf('/') + 1); 
 
             setLoading(true, `Descargando desde URL: ${fileName}...`);
-            xmlDoc = null; // Reiniciar estado
+            xmlDoc = null; 
+            lastXPathNodes = []; // Limpiar resultados
+            document.getElementById('generated-xpath-indicator').classList.add('hidden');
 
             try {
                 const response = await fetch(url);
@@ -284,13 +373,6 @@
             }
         }
 
-        // --- Lógica de Procesamiento Central ---
-        
-        /**
-         * Decide cómo procesar los datos (descomprimir o parsear)
-         * @param {string|ArrayBuffer} data - El contenido del archivo.
-         * @param {string} fileName - Nombre del archivo/URL para determinar el tipo.
-         */
         async function processData(data, fileName) {
             let xmlString = null;
             const fileNameLower = fileName.toLowerCase();
@@ -310,36 +392,26 @@
             }
         }
 
-
-        /**
-         * Procesa un ArrayBuffer de ZIP, buscando el primer archivo XML.
-         * @param {ArrayBuffer} arrayBuffer - El contenido del archivo ZIP.
-         * @returns {Promise<string|null>} El contenido XML como string o null si falla.
-         */
         async function processZip(arrayBuffer) {
             const zip = new JSZip();
             const zipFile = await zip.loadAsync(arrayBuffer);
 
-            // Buscar el primer archivo que termine en .xml
             let xmlFile = null;
             let found = false;
             
-            // Usamos try/catch con un error para romper el bucle forEach de JSZip
             try {
                 zipFile.forEach((relativePath, fileEntry) => {
                     if (!fileEntry.dir && relativePath.toLowerCase().endsWith('.xml')) {
                         xmlFile = fileEntry;
                         found = true;
-                        throw new Error("XML_FOUND"); // Truco para romper forEach
+                        throw new Error("XML_FOUND"); 
                     }
                 });
             } catch (e) {
-                if (e.message !== "XML_FOUND") throw e; // Lanzar errores reales
+                if (e.message !== "XML_FOUND") throw e; 
             }
 
-
             if (found && xmlFile) {
-                // El método 'async' de JSZip es crucial para archivos grandes
                 return xmlFile.async("text");
             } else {
                 throw new Error("El archivo ZIP no contiene un archivo .xml o está vacío.");
@@ -349,26 +421,22 @@
 
         // --- Manejo y Consulta XML ---
 
-        /**
-         * Parsea el string XML y actualiza la UI.
-         * @param {string} xmlString - El contenido XML en formato string.
-         * @param {string} sourceName - Nombre de la fuente (archivo/url).
-         */
         function processXML(xmlString, sourceName) {
             xmlContent = xmlString;
             const parser = new DOMParser();
             const doc = parser.parseFromString(xmlString, "application/xml");
 
-            // Comprobar errores de parseo XML
             const error = doc.querySelector('parsererror');
             if (error) {
-                displayError('Error al parsear el XML. Esto puede indicar un XML mal formado o un problema de codificación.');
+                displayError('Error al parsear el XML. Esto puede indicar un XML mal formado.');
                 return;
             }
 
             xmlDoc = doc;
+            lastXPathNodes = []; // Limpiar resultados anteriores
+            document.getElementById('xpath-results').innerHTML = '<p class="text-gray-500">Los resultados de la consulta aparecerán aquí. Estos resultados son la base de las Herramientas de Procesamiento.</p>';
 
-            // Extraer y mostrar información general
+
             const rootElement = xmlDoc.documentElement ? xmlDoc.documentElement.nodeName : 'N/A';
             const totalElements = xmlDoc.getElementsByTagName('*').length;
 
@@ -376,22 +444,28 @@
                 <p><strong>Fuente:</strong> ${sourceName}</p>
                 <p><strong>Raíz del Documento:</strong> <code>&lt;${rootElement}&gt;</code></p>
                 <p><strong>Total de Elementos (nodos):</strong> ${totalElements.toLocaleString('es-ES')}</p>
-                <p class="mt-2 text-gray-500">Documento listo para consultas XPath.</p>
+                <p class="mt-2 text-gray-500">Documento listo para consultas XPath y herramientas de procesamiento.</p>
             `;
-            document.getElementById('xpath-query').value = rootElement === 'N/A' ? '' : `/${rootElement}/*[1]`; // Sugerencia de consulta
+            document.getElementById('xpath-query-direct').value = rootElement === 'N/A' ? '' : `/${rootElement}/*[1]`; 
             document.getElementById('xml-panel').classList.remove('hidden');
+
+            document.getElementById('tool-results').innerHTML = '<p class="text-gray-500">Los resultados de las herramientas (XML formateado, JSON o Análisis IA) aparecerán aquí.</p>';
+            document.getElementById('generated-xpath-indicator').classList.add('hidden');
+
+            // Asegura que el modo inicial sea el correcto
+            setQueryMode(currentQueryMode);
         }
 
         /**
-         * Ejecuta la consulta XPath ingresada por el usuario.
+         * Ejecuta la consulta XPath y muestra los resultados.
+         * @param {string} query - La expresión XPath a ejecutar.
          */
-        function executeXPathQuery() {
+        function executeXPathQuery(query) {
             if (!xmlDoc) {
                 showModal('Error de XML', 'Primero debes cargar y procesar un archivo XML.');
                 return;
             }
 
-            const query = document.getElementById('xpath-query').value.trim();
             if (!query) {
                 showModal('Consulta Vacía', 'Por favor, introduce una expresión XPath.');
                 return;
@@ -399,63 +473,69 @@
 
             const resultsDiv = document.getElementById('xpath-results');
             resultsDiv.innerHTML = '<div class="flex items-center"><div class="loading-spinner mr-2"></div> Ejecutando consulta...</div>';
+            
+            // Limpiar resultados anteriores
+            lastXPathNodes = [];
+            const MAX_NODES_STORED = 500;
 
-            // Usamos setTimeout para que el spinner se muestre antes de bloquear el hilo
             setTimeout(() => {
                 try {
-                    // Si el navegador soporta 'createExpression', usarlo (más rápido y potente en algunos casos)
                     const resolver = xmlDoc.createNSResolver(xmlDoc.documentElement);
-                    const iterator = xmlDoc.evaluate(query, xmlDoc, resolver, XPathResult.ANY_TYPE, null);
                     
-                    let node = iterator.iterateNext();
-                    let count = 0;
+                    // Usar ORDERED_NODE_SNAPSHOT_TYPE para obtener un resultado estático y evitar el error de "document mutated".
+                    const snapshot = xmlDoc.evaluate(query, xmlDoc, resolver, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                    
+                    let count = snapshot.snapshotLength; 
                     let resultHtml = '';
 
-                    while (node) {
-                        count++;
-                        let nodeOutput = '';
+                    // Iterar sobre el snapshot estático
+                    for (let i = 0; i < count; i++) {
+                        let node = snapshot.snapshotItem(i);
                         
-                        if (node.nodeType === Node.ELEMENT_NODE) {
-                            // Si es un elemento, mostramos su etiqueta, atributos y un poco de su contenido.
-                            const attrs = Array.from(node.attributes).map(attr => `${attr.name}="${attr.value}"`).join(' ');
-                            
-                            // Limitar la previsualización del texto a 100 caracteres
-                            let textContentPreview = node.textContent.trim().substring(0, 100);
-                            if (node.textContent.trim().length > 100) textContentPreview += '...';
+                        let nodeOutput = '';
 
-                            nodeOutput = `
-                                <div>
-                                    <strong class="text-blue-600">${count}. &lt;${node.nodeName}${attrs ? ' ' + attrs : ''}&gt;</strong>
-                                    <p class="ml-4 text-xs italic text-gray-500">Contenido: ${textContentPreview}</p>
-                                </div>
-                            `;
-                        } else if (node.nodeType === Node.ATTRIBUTE_NODE) {
-                            // Si es un atributo
-                            nodeOutput = `<p class="text-green-600">${count}. Atributo: ${node.name} = "${node.value}"</p>`;
-                        } else if (node.nodeType === Node.TEXT_NODE) {
-                            // Si es un nodo de texto
-                            const textValue = node.nodeValue.trim();
-                            if (textValue) {
-                                // Limitar la previsualización del texto a 150 caracteres
-                                nodeOutput = `<p class="text-purple-600">${count}. Texto: "${textValue.substring(0, 150)}..."</p>`;
+                        // 1. Almacenar el nodo si no se supera el límite
+                        if (i < MAX_NODES_STORED) {
+                            // Clonar el nodo para almacenarlo y evitar referencias al documento principal
+                            lastXPathNodes.push(node.cloneNode(true));
+                            
+                            // 2. Lógica de Display (muestra los primeros MAX_NODES_STORED)
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                const attrs = Array.from(node.attributes).map(attr => `${attr.name}="${attr.value}"`).join(' ');
+                                let textContentPreview = node.textContent.trim().substring(0, 100);
+                                if (node.textContent.trim().length > 100) textContentPreview += '...';
+
+                                nodeOutput = `
+                                    <div>
+                                        <strong class="text-blue-600">${i + 1}. &lt;${node.nodeName}${attrs ? ' ' + attrs : ''}&gt;</strong>
+                                        <p class="ml-4 text-xs italic text-gray-500">Contenido: ${textContentPreview}</p>
+                                    </div>
+                                `;
+                            } else if (node.nodeType === Node.ATTRIBUTE_NODE) {
+                                nodeOutput = `<p class="text-green-600">${i + 1}. Atributo: ${node.name} = "${node.value}"</p>`;
+                            } else if (node.nodeType === Node.TEXT_NODE) {
+                                const textValue = node.nodeValue.trim();
+                                if (textValue) {
+                                    nodeOutput = `<p class="text-purple-600">${i + 1}. Texto: "${textValue.substring(0, 150)}..."</p>`;
+                                }
                             }
+                            resultHtml += nodeOutput;
                         }
 
-                        resultHtml += nodeOutput;
-                        node = iterator.iterateNext();
-                        
-                        // Limitador de resultados para evitar congelar el navegador
-                        if (count > 500) {
-                            resultHtml += `<p class="text-orange-500 font-bold mt-4">... Mostrando solo los primeros 500 resultados para evitar sobrecarga del navegador.</p>`;
+                        // Agregar mensaje de advertencia si hay muchos nodos
+                        if (i === MAX_NODES_STORED - 1 && count > MAX_NODES_STORED) {
+                            resultHtml += `<p class="text-orange-500 font-bold mt-4">... Mostrando solo los primeros ${MAX_NODES_STORED} resultados. El conteo total es ${count.toLocaleString('es-ES')}.</p>`;
                             break;
                         }
                     }
+
+                    const finalCount = lastXPathNodes.length;
 
                     if (count === 0) {
                         resultsDiv.innerHTML = '<p class="text-red-500 font-semibold">No se encontraron resultados para la consulta.</p>';
                     } else {
                         resultsDiv.innerHTML = `
-                            <p class="mb-3 font-semibold text-gray-800">Se encontraron ${count.toLocaleString('es-ES')} resultados:</p>
+                            <p class="mb-3 font-semibold text-gray-800">Se encontraron ${count.toLocaleString('es-ES')} resultados, de los cuales ${finalCount.toLocaleString('es-ES')} han sido guardados para las herramientas de procesamiento:</p>
                             <div class="space-y-2">${resultHtml}</div>
                         `;
                     }
@@ -463,9 +543,341 @@
                 } catch (e) {
                     console.error("Error al ejecutar XPath:", e);
                     resultsDiv.innerHTML = `<p class="text-red-500 font-semibold">Error en la sintaxis XPath o durante la ejecución:</p><p class="text-red-500">${e.message}</p>`;
+                    lastXPathNodes = [];
                 }
-            }, 50); // Pequeño retraso para permitir la actualización de la UI
+            }, 50); 
         }
+
+        /**
+         * Genera una representación JSON simplificada de la estructura del XML
+         * para dar contexto al LLM.
+         */
+        function getSimplifiedXmlStructure() {
+            if (!xmlDoc || !xmlDoc.documentElement) return "Estructura no disponible.";
+
+            // Tomamos el nodo raíz
+            const root = xmlDoc.documentElement;
+            const jsonRoot = {};
+            jsonRoot[root.nodeName] = {};
+
+            const attributes = Array.from(root.attributes).map(attr => `${attr.name}="..."`);
+            if (attributes.length) {
+                jsonRoot[root.nodeName]['@atributos'] = attributes.join(', ');
+            }
+
+            const childrenNames = Array.from(root.children).map(child => child.nodeName);
+            const uniqueChildren = Array.from(new Set(childrenNames));
+            
+            if (uniqueChildren.length) {
+                jsonRoot[root.nodeName]['elementos_hijos'] = uniqueChildren.join(', ');
+            } else {
+                jsonRoot[root.nodeName]['elementos_hijos'] = root.textContent.trim().substring(0, 50) + '...';
+            }
+
+            return JSON.stringify(jsonRoot, null, 2).substring(0, 2000); // Límite de 2000 caracteres
+        }
+
+        /**
+         * Llama a Gemini para convertir la solicitud en lenguaje natural a XPath.
+         * Muestra el XPath generado antes de ejecutarlo.
+         */
+        async function convertNaturalLanguageToXPath() {
+            if (!xmlDoc) {
+                showModal('Error de XML', 'Primero debes cargar y procesar un archivo XML.');
+                return;
+            }
+
+            const naturalQuery = document.getElementById('xpath-query-natural').value.trim();
+            if (!naturalQuery) {
+                showModal('Consulta Vacía', 'Por favor, describe tu consulta en lenguaje natural.');
+                return;
+            }
+
+            const xmlStructure = getSimplifiedXmlStructure();
+            
+            const resultsDiv = document.getElementById('xpath-results');
+            resultsDiv.innerHTML = '<div class="flex items-center text-blue-600"><div class="loading-spinner mr-2"></div> Convirtiendo a XPath con IA...</div>';
+            document.getElementById('generated-xpath-indicator').classList.add('hidden');
+            
+            const systemPrompt = "Eres un experto en la generación de consultas XPath (versión 1.0) a partir de descripciones en lenguaje natural y una estructura XML simplificada. Tu respuesta debe contener *únicamente* la expresión XPath generada, sin ninguna explicación, introducción, o marcado adicional (como comillas o bloques de código).";
+            const userQuery = `Dada la siguiente estructura XML simplificada: \n\n${xmlStructure}\n\nConvierte la siguiente solicitud en lenguaje natural a una expresión XPath válida: "${naturalQuery}"`;
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            let generatedXPath = "";
+            let retries = 0;
+            const maxRetries = 3;
+            let delay = 1000;
+
+            // Implementación de fetch con backoff exponencial
+            while (retries < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && retries < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2;
+                            retries++;
+                            continue;
+                        }
+                        throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    generatedXPath = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+                    break; 
+
+                } catch (error) {
+                    console.error(`Intento ${retries + 1} fallido:`, error);
+                    if (retries < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                        retries++;
+                    } else {
+                        resultsDiv.innerHTML = `<p class="text-red-500 font-semibold">Error al conectar con la IA: ${error.message}</p>`;
+                        return;
+                    }
+                }
+            }
+
+            if (generatedXPath) {
+                // 1. Limpia el resultado por si el modelo añadió comillas o código
+                generatedXPath = generatedXPath.replace(/^(```xpath\s*|`|```\s*|")/g, '').replace(/(`|```|"\s*)$/g, '').trim();
+
+                // 2. Muestra el XPath generado
+                document.getElementById('generated-xpath-code').textContent = generatedXPath;
+                document.getElementById('generated-xpath-indicator').classList.remove('hidden');
+
+                // 3. Inyecta el XPath en el campo de consulta directa para que el usuario pueda editarlo
+                document.getElementById('xpath-query-direct').value = generatedXPath;
+                
+                // 4. Ejecuta la consulta generada
+                executeXPathQuery(generatedXPath);
+            } else {
+                resultsDiv.innerHTML = `<p class="text-red-500 font-semibold">La IA no pudo generar una expresión XPath válida para tu solicitud. Intenta ser más específico sobre los nombres de los elementos.</p>`;
+                document.getElementById('generated-xpath-indicator').classList.add('hidden');
+            }
+        }
+
+
+        // --- FUNCIONES DE HERRAMIENTAS (ANTERIORES) ---
+
+        function viewFormattedXML() {
+            if (lastXPathNodes.length === 0) {
+                showModal('Error', 'Primero debes ejecutar una consulta XPath que devuelva resultados.');
+                return;
+            }
+            // Lógica de viewFormattedXML... (Sin cambios funcionales)
+            const resultsPre = document.getElementById('tool-results');
+            resultsPre.textContent = `Formateando ${lastXPathNodes.length} nodos XML...`;
+
+            setTimeout(() => {
+                try {
+                    const serializer = new XMLSerializer();
+                    let formattedXml = '';
+                    
+                    lastXPathNodes.forEach((node, index) => {
+                        let rawXml = serializer.serializeToString(node);
+                        let prettyXml = rawXml.replace(/(>)(<)(\/*)/g, '$1\n$2$3');
+                        formattedXml += `<!-- Resultado ${index + 1} -->\n` + prettyXml + '\n\n';
+                    });
+                    
+                    resultsPre.textContent = formattedXml.trim(); 
+                    resultsPre.classList.remove('text-red-500');
+                    resultsPre.classList.add('text-gray-700');
+                } catch (e) {
+                    console.error("Error al formatear XML:", e);
+                    resultsPre.textContent = `Error al serializar los nodos: ${e.message}`;
+                    resultsPre.classList.add('text-red-500');
+                    resultsPre.classList.remove('text-gray-700');
+                }
+            }, 50);
+        }
+
+        function xmlToJson(xml) {
+            if (!xml || xml.nodeType !== 1) return {};
+            let obj = {};
+            if (xml.attributes && xml.attributes.length > 0) {
+                obj["@attributes"] = {};
+                for (let j = 0; j < xml.attributes.length; j++) {
+                    let attribute = xml.attributes.item(j);
+                    obj["@attributes"][attribute.nodeName] = attribute.nodeValue;
+                }
+            }
+            if (xml.hasChildNodes()) {
+                for (let i = 0; i < xml.childNodes.length; i++) {
+                    let item = xml.childNodes.item(i);
+                    let nodeName = item.nodeName;
+
+                    if (item.nodeType === 3) { // Nodos de Texto
+                        let text = item.nodeValue.trim();
+                        if (text) {
+                            obj["#text"] = (obj["#text"] || "") + text;
+                        }
+                    }
+                    else if (item.nodeType === 1) { // Nodos de Elemento
+                        let childResult = xmlToJson(item);
+
+                        if (typeof obj[nodeName] === "undefined") {
+                            obj[nodeName] = childResult;
+                        } else {
+                            if (typeof obj[nodeName].push === "undefined") {
+                                let old = obj[nodeName];
+                                obj[nodeName] = [];
+                                obj[nodeName].push(old);
+                            }
+                            obj[nodeName].push(childResult);
+                        }
+                    }
+                }
+            }
+            const keys = Object.keys(obj);
+            if (keys.length === 1 && keys[0] === "#text" && !obj["@attributes"]) {
+                return obj["#text"];
+            }
+            return obj;
+        };
+
+        function convertToJSON() {
+            if (lastXPathNodes.length === 0) {
+                showModal('Error', 'Primero debes ejecutar una consulta XPath que devuelva resultados.');
+                return;
+            }
+            // Lógica de convertToJSON... (Sin cambios funcionales)
+            const resultsPre = document.getElementById('tool-results');
+            resultsPre.textContent = `Convirtiendo ${lastXPathNodes.length} nodos a JSON...`;
+
+            setTimeout(() => {
+                try {
+                    const jsonArray = [];
+                    
+                    lastXPathNodes.forEach(node => {
+                        if (node.nodeType === 1) { 
+                            const jsonObject = xmlToJson(node);
+                            jsonArray.push(jsonObject);
+                        }
+                    });
+                    
+                    const outputObject = jsonArray.length === 1 ? jsonArray[0] : jsonArray;
+                    const jsonString = JSON.stringify(outputObject, null, 2);
+
+                    resultsPre.textContent = jsonString;
+                    resultsPre.classList.remove('text-red-500');
+                    resultsPre.classList.add('text-gray-700');
+                } catch (e) {
+                    console.error("Error al convertir a JSON:", e);
+                    resultsPre.textContent = `Error en la conversión de los nodos a JSON: ${e.message}`;
+                    resultsPre.classList.add('text-red-500');
+                    resultsPre.classList.remove('text-gray-700');
+                }
+            }, 50);
+        }
+
+        async function analyzeWithGemini() {
+            if (lastXPathNodes.length === 0) {
+                showModal('Error', 'Primero debes ejecutar una consulta XPath que devuelva resultados para analizar.');
+                return;
+            }
+
+            const resultsPre = document.getElementById('tool-results');
+            resultsPre.textContent = `Preparando datos para el Análisis IA...`;
+            
+            let jsonString = '';
+            try {
+                const jsonArray = [];
+                lastXPathNodes.forEach(node => {
+                    if (node.nodeType === 1) { 
+                        jsonArray.push(xmlToJson(node));
+                    }
+                });
+                const outputObject = jsonArray.length === 1 ? jsonArray[0] : jsonArray;
+                jsonString = JSON.stringify(outputObject, null, 2).substring(0, 10000); 
+            } catch (e) {
+                resultsPre.textContent = `Error al preparar los datos para la IA: ${e.message}`;
+                resultsPre.classList.add('text-red-500');
+                return;
+            }
+
+            const systemPrompt = "Actúa como un analista de datos experto. Tu tarea es examinar la estructura, los valores y los patrones del JSON de entrada que representa datos XML. Proporciona un resumen conciso y perspicaz, destacando la estructura de los datos, los elementos clave, las tendencias o anomalías encontradas, y cualquier recomendación de limpieza o uso. Responde profesionalmente en español.";
+            const userQuery = `Analiza los siguientes datos JSON (derivados de una consulta XPath sobre XML): \n\n${jsonString}`;
+            
+            resultsPre.innerHTML = '<div class="flex items-center text-teal-700"><div class="loading-spinner mr-2"></div> Analizando datos con Gemini... Esto puede tomar unos segundos.</div>';
+            resultsPre.classList.remove('text-red-500');
+            resultsPre.classList.add('text-gray-700');
+
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            let responseText = "No se pudo obtener una respuesta.";
+            let retries = 0;
+            const maxRetries = 3;
+            let delay = 1000;
+
+            while (retries < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && retries < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2;
+                            retries++;
+                            continue;
+                        }
+                        throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        responseText = candidate.content.parts[0].text;
+                        break; 
+                    } else {
+                        throw new Error("Respuesta del modelo incompleta o vacía.");
+                    }
+                } catch (error) {
+                    console.error(`Intento ${retries + 1} fallido:`, error);
+                    if (retries < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                        retries++;
+                    } else {
+                        responseText = `Error final al conectar con la IA: ${error.message}`;
+                    }
+                }
+            }
+
+            resultsPre.textContent = responseText;
+            if (responseText.startsWith("Error final")) {
+                resultsPre.classList.add('text-red-500');
+                resultsPre.classList.remove('text-gray-700');
+            } else {
+                resultsPre.classList.remove('text-red-500');
+            }
+        }
+
 
         // --- Configuración Drag and Drop ---
 
@@ -473,10 +885,8 @@
             const dropArea = document.getElementById('file-upload-area');
             const fileInput = document.getElementById('file-input');
 
-            // Click listener para abrir el diálogo de archivo
             dropArea.addEventListener('click', () => fileInput.click());
 
-            // Listeners para Drag and Drop
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 dropArea.addEventListener(eventName, preventDefaults, false);
             });
@@ -501,13 +911,15 @@
                 const files = dt.files;
 
                 if (files.length) {
-                    // Limpiar input de URL y error
                     document.getElementById('url-input').value = '';
                     
-                    fileInput.files = files; // Asigna los archivos al input
-                    fileInput.dispatchEvent(new Event('change')); // Dispara el evento change
+                    fileInput.files = files;
+                    fileInput.dispatchEvent(new Event('change'));
                 }
             }
+            
+            // Inicializar el modo de consulta al cargar
+            setQueryMode('direct');
         });
     </script>
 </body>
